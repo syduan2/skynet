@@ -1,0 +1,10 @@
+Kaggle Coupon Purchase Competition
+===============================================================================
+Script to determine if a customer will purchase a coupon for a Kaggle
+competition.
+
+Submission Date: Sep 30, 2015
+
+Note: coupon_visit_train.csv and coupon_detail_train.csv need to be retrieved
+from 'https://www.kaggle.com/c/coupon-purchase-prediction/data' as they are too
+large to be stored in github.
