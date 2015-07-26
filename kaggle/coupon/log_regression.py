@@ -7,7 +7,7 @@ combinations.
 
 import csv
 import datetime, time
-
+from collections import defaultdict
 
 integer_indices = [2, 3, 4, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 date_hour_indices =  [5, 6]
@@ -45,7 +45,6 @@ def parse_coupon_line(line_data):
     Tuple with first element being the coupon hash and the second value a list
     of the remaining feature data.
   """
-
   coupon_hash = line_data[-1]
   features = line_data[0 : len(line_data) - 1]
 
@@ -68,13 +67,21 @@ def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
 
   coupon_data = {}  # Access feature data using coupon hash
+  purchase_data = defaultdict(int)  # Dictionary of purchases with number of purchases as val
   with open('data/coupon_list_train.csv', 'rb') as csvfile:
     features = csv.reader(csvfile, delimiter=',')
     feature_list = features.next()
     for feature in features:
       coupon_hash, feature_attr = parse_coupon_line(feature)
       coupon_data[coupon_hash] = feature_attr
-    print feature_list
+
+  with open('data/coupon_detail_train.csv', 'rb') as csvfile:
+    csv_reader = csv.DictReader(csvfile)
+    for purchase_line in csv_reader:
+      purchase_key = (purchase_line['USER_ID_hash'],
+                      purchase_line['COUPON_ID_hash'])
+      purchase_data[purchase_key] += 1
+  print purchase_data
 
 if __name__ == '__main__':
   main()
