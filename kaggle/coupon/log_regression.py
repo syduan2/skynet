@@ -6,12 +6,15 @@ combinations.
 """
 
 import csv
-import datetime, time
 from collections import defaultdict
+import datetime, time
+from scipy.special import expit
+from scipy.optimize import fmin_bfgs
 
 integer_indices = [2, 3, 4, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 date_hour_indices =  [5, 6]
 date_indices = [8, 9]
+
 
 def parse_time(time_string, includes_time):
   """Function for parsing the date/time string
@@ -63,6 +66,14 @@ def parse_coupon_line(line_data):
 
   return (coupon_hash, feature_list)
 
+def logistic_cost(y, feature_list, theta):
+
+def logistic_regression(feature_data, visit_filename):
+  with open(visit_filename, 'rb') as csvfile:
+  csv_reader = csv.DictReader(csvfile)
+  for visit in csv_reader:
+
+
 def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
 
@@ -81,7 +92,9 @@ def main():
       purchase_key = (purchase_line['USER_ID_hash'],
                       purchase_line['COUPON_ID_hash'])
       purchase_data[purchase_key] += 1
-  print purchase_data
+
+  logistic_regression(coupon_data, 'data/coupon_visit_train.csv')
+
 
 if __name__ == '__main__':
   main()
