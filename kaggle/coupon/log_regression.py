@@ -5,15 +5,28 @@ over the set of features using only 1-Dimensional features without any
 combinations.
 """
 
-import csv
 from collections import defaultdict
-import datetime, time
+import datetime, time, multiprocessing, argparse
 from scipy.special import expit
 from scipy.optimize import fmin_bfgs
+from sklearn.svm import SVC
+from sklearn.grid_search import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn import cross_validation
+from sklearn import linear_model
+
 
 integer_indices = [2, 3, 4, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 date_hour_indices =  [5, 6]
 date_indices = [8, 9]
+
+def get_arguments():
+  parser = argparse.ArgumentParser(description='Coupon Logistical regression.')
+  parser.add_argument()
+
+
+  return arguments
+
 
 
 def parse_time(time_string, includes_time):
@@ -69,10 +82,42 @@ def parse_coupon_line(line_data):
 def logistic_cost(y, feature_list, theta):
 
 def logistic_regression(feature_data, visit_filename):
+  classifier = linear_model.LogisticRegression(C=1e5)
+  parallel_processing(classifier, cv, parameters, X, y, kwargs)
+  '''
   with open(visit_filename, 'rb') as csvfile:
   csv_reader = csv.DictReader(csvfile)
   for visit in csv_reader:
+  '''
 
+def learning_algorithm(cv, algorithm, parameters, X, y, **kwargs):
+  if algorithm == 'SVM':
+    SVM(cv, parameters, X, y, kwargs)
+  elif algorithm == 'logistic_regression':
+    logistic_regression(cv, parameters, X, y, kwargs)
+  else:
+    raise Exception('Currently we can only handle SVM and logistic regression')
+
+def parallel_processing(classifier, cv, parameters, X, y, **kwargs):
+  
+  scoring = 'accuracy' if 'scoring' not in kwargs else kwargs['scoring']
+  # other scoring options: http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+  n_jobs = multiprocessing.cpu_count() if 'n_jobs' not in kwargs else kwargs['n_jobs']
+  scaler = preprocessing.StandardScaler() if 'scaling' not in kwargs else kwargs['scaling']
+  clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
+  clf_fold = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
+  clf_fold.fit(X, y)
+
+  return clf_fold.grid_scores_, clf_fold.best_params_
+
+def SVM(cv, parameters, X, y, **kwargs): 
+  kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
+  random_state = None if 'random_state' not in kwargs else kwargs['random_state']
+  prob = True if 'prob' not in kwargs else kwarg['prob']
+  classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
+  parallel_processing(classifier, cv, parameters, X, y, kwargs)
+
+def LinearSVM():
 
 def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
@@ -92,6 +137,8 @@ def main():
       purchase_key = (purchase_line['USER_ID_hash'],
                       purchase_line['COUPON_ID_hash'])
       purchase_data[purchase_key] += 1
+
+  cv = sklearn.cross_validation.KFold(n= , n_folds=5, shuffle=True, random_state=None) 
 
   logistic_regression(coupon_data, 'data/coupon_visit_train.csv')
 
