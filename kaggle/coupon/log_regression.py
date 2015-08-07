@@ -81,9 +81,22 @@ def parse_coupon_line(line_data):
 
 def logistic_cost(y, feature_list, theta):
 
-def logistic_regression(feature_data, visit_filename):
-  classifier = linear_model.LogisticRegression(C=1e5)
-  parallel_processing(classifier, cv, parameters, X, y, kwargs)
+def logistic_regression(cv, parameters, X, y, **kwargs):
+  clf = linear_model.LogisticRegression()
+  clf.fit(X,y)
+  results = {}
+  if 'decision' in kwargs and kwargs['decision'] == True:
+    results.update({'decision': clf.decision_function(X)})
+  if 'predict' in kwargs and kwargs['predict'] == True:
+    results.update({'predict': clf.predict(X)})
+  if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
+    results.update({'predict_prob': clf.predict_proba(X)})
+  if 'score' in kwargs and kwargs['score'] == True:
+    results.update({'score': clf.score(X, y)})
+  if 'get_params' in kwargs and kwargs['get_params'] == True:
+    results.update({'params': clf.get_params()})
+
+  return results
   '''
   with open(visit_filename, 'rb') as csvfile:
   csv_reader = csv.DictReader(csvfile)
@@ -92,11 +105,13 @@ def logistic_regression(feature_data, visit_filename):
 
 def learning_algorithm(cv, algorithm, parameters, X, y, **kwargs):
   if algorithm == 'SVM':
-    SVM(cv, parameters, X, y, kwargs)
+    SVM(cv, parameters, X, y, **kwargs)
   elif algorithm == 'logistic_regression':
-    logistic_regression(cv, parameters, X, y, kwargs)
+    logistic_regression(cv, parameters, X, y, **kwargs)
+  elif algorithm == 'LinearSVC'
+    LinearSVC(cv, parameters, X, y, **kwargs)
   else:
-    raise Exception('Currently we can only handle SVM and logistic regression')
+    raise Exception('Currently we can only handle SVM, logistic regression and LinearSVC')
 
 def parallel_processing(classifier, cv, parameters, X, y, **kwargs):
   
@@ -106,18 +121,32 @@ def parallel_processing(classifier, cv, parameters, X, y, **kwargs):
   scaler = preprocessing.StandardScaler() if 'scaling' not in kwargs else kwargs['scaling']
   clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
   clf_fold = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
-  clf_fold.fit(X, y)
+  clf_cv.fit(X, y)
 
-  return clf_fold.grid_scores_, clf_fold.best_params_
+  results = {}
+  if 'predict' in kwargs and kwargs['predict'] == True:
+    results.update({'predict': clf_cv.predict(X)})
+  if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
+    results.update({'predict_prob': clf_cv.predict_proba(X)})
+
+  return clf_fold.grid_scores_, clf_fold.best_params_, results
 
 def SVM(cv, parameters, X, y, **kwargs): 
   kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
   random_state = None if 'random_state' not in kwargs else kwargs['random_state']
   prob = True if 'prob' not in kwargs else kwarg['prob']
+  C = 1.0 if 'C' not in kwargs else kwargs['C']
+  gamma = 0.0 if 'gamma' not in kwargs else kwargs['gamma']
+  parameters = {'classifier__C': C, 'classifier__gamma': gamma}
   classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
-  parallel_processing(classifier, cv, parameters, X, y, kwargs)
+  parallel_processing(classifier, cv, parameters, X, y, **kwargs)
 
-def LinearSVM():
+def LinearSVC(cv, X, y, **kwargs):
+  C = 1.0 if 'C' not in kwargs else kwargs['C']
+  parameters = {'classifier__C': C}
+  random_state = None if 'random_state' not in kwargs else kwargs['random_state']
+  classifier = svm.LinearSVC(random_state=random_state)
+  parallel_processing(classifier, cv, parameters, X, y, **kwargs)
 
 def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
