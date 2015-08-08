@@ -81,72 +81,86 @@ def parse_coupon_line(line_data):
 
 def logistic_cost(y, feature_list, theta):
 
-def logistic_regression(cv, parameters, X, y, **kwargs):
-  clf = linear_model.LogisticRegression()
-  clf.fit(X,y)
-  results = {}
-  if 'decision' in kwargs and kwargs['decision'] == True:
-    results.update({'decision': clf.decision_function(X)})
-  if 'predict' in kwargs and kwargs['predict'] == True:
-    results.update({'predict': clf.predict(X)})
-  if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
-    results.update({'predict_prob': clf.predict_proba(X)})
-  if 'score' in kwargs and kwargs['score'] == True:
-    results.update({'score': clf.score(X, y)})
-  if 'get_params' in kwargs and kwargs['get_params'] == True:
-    results.update({'params': clf.get_params()})
 
-  return results
-  '''
-  with open(visit_filename, 'rb') as csvfile:
-  csv_reader = csv.DictReader(csvfile)
-  for visit in csv_reader:
-  '''
+class Classifiers(object):
+  def __init__(self, X_train=None, y_train=None, X_test=None, y_test=None, **kwargs):
+    self.X_train = X_train
+    self.y_train = y_train
+    self.X_test = X_test
+    self.y_test = y_test
+    self.cv = cv
 
-def learning_algorithm(cv, algorithm, parameters, X, y, **kwargs):
-  if algorithm == 'SVM':
-    SVM(cv, parameters, X, y, **kwargs)
-  elif algorithm == 'logistic_regression':
-    logistic_regression(cv, parameters, X, y, **kwargs)
-  elif algorithm == 'LinearSVC'
-    LinearSVC(cv, parameters, X, y, **kwargs)
-  else:
-    raise Exception('Currently we can only handle SVM, logistic regression and LinearSVC')
+  def set(self, X_train, y_train, X_test, y_test):
+    self.X_train = X_train
+    self.y_train = y_train
+    self.X_test = X_test
+    self.y_test = y_test
 
-def parallel_processing(classifier, cv, parameters, X, y, **kwargs):
+  def set_cv(self, cv):
+    self.cv = cv    
+
+  def set_clf(self, clf):
+    self.clf = clf
+
+  def learning_algorithm(self, cv, algorithm, **kwargs):
+    self.cv = cv
+    if algorithm == 'SVM':
+      self.SVM(**kwargs)
+    elif algorithm == 'logistic_regression':
+      self.logistic_regression(**kwargs)
+    elif algorithm == 'LinearSVC'
+      self.LinearSVC(**kwargs)
+    else:
+      raise Exception('Currently we can only handle SVM, logistic regression and LinearSVC')
+
+  def LinearSVC(self, **kwargs):
+    C = 1.0 if 'C' not in kwargs else kwargs['C']
+    parameters = {'classifier__C': C}
+    random_state = None if 'random_state' not in kwargs else kwargs['random_state']
+    classifier = svm.LinearSVC(random_state=random_state)
+    parallel_processing(classifier, parameters, **kwargs)
+
+  def logistic_regression(self, **kwargs):
+    self.clf = linear_model.LogisticRegression()
+    self.clf.fit(self.X_train, self.y_train)
   
-  scoring = 'accuracy' if 'scoring' not in kwargs else kwargs['scoring']
-  # other scoring options: http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
-  n_jobs = multiprocessing.cpu_count() if 'n_jobs' not in kwargs else kwargs['n_jobs']
-  scaler = preprocessing.StandardScaler() if 'scaling' not in kwargs else kwargs['scaling']
-  clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
-  clf_fold = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
-  clf_cv.fit(X, y)
+  def parallel_processing(classifier, parameters, **kwargs):
+    scoring = 'accuracy' if 'scoring' not in kwargs else kwargs['scoring']
+    # other scoring options: http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+    n_jobs = multiprocessing.cpu_count() if 'n_jobs' not in kwargs else kwargs['n_jobs']
+    scaler = preprocessing.StandardScaler() if 'scaling' not in kwargs else kwargs['scaling']
+    clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
+    self.clf = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
+    self.clf.fit(self.X_train, self.y_train)
 
-  results = {}
-  if 'predict' in kwargs and kwargs['predict'] == True:
-    results.update({'predict': clf_cv.predict(X)})
-  if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
-    results.update({'predict_prob': clf_cv.predict_proba(X)})
+    return clf_fold.grid_scores_, clf_fold.best_params_, results
 
-  return clf_fold.grid_scores_, clf_fold.best_params_, results
+  def predict(self, **kwargs):
+    results = {}
+    if 'decision' in kwargs and kwargs['decision'] == True:
+      results.update({'decision': clf.decision_function(self.X_test)})
+    if 'predict' in kwargs and kwargs['predict'] == True:
+      results.update({'predict': clf.predict(self.X_test)})
+    if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
+      results.update({'predict_prob': clf.predict_proba(self.X_test)})
+    if 'score' in kwargs and kwargs['score'] == True:
+      results.update({'score': clf.score(self.X_test, self.y_test)})
+    if 'get_params' in kwargs and kwargs['get_params'] == True:
+      results.update({'params': clf.get_params()})
 
-def SVM(cv, parameters, X, y, **kwargs): 
-  kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
-  random_state = None if 'random_state' not in kwargs else kwargs['random_state']
-  prob = True if 'prob' not in kwargs else kwarg['prob']
-  C = 1.0 if 'C' not in kwargs else kwargs['C']
-  gamma = 0.0 if 'gamma' not in kwargs else kwargs['gamma']
-  parameters = {'classifier__C': C, 'classifier__gamma': gamma}
-  classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
-  parallel_processing(classifier, cv, parameters, X, y, **kwargs)
+    return results
+ 
 
-def LinearSVC(cv, X, y, **kwargs):
-  C = 1.0 if 'C' not in kwargs else kwargs['C']
-  parameters = {'classifier__C': C}
-  random_state = None if 'random_state' not in kwargs else kwargs['random_state']
-  classifier = svm.LinearSVC(random_state=random_state)
-  parallel_processing(classifier, cv, parameters, X, y, **kwargs)
+  def SVM(self, **kwargs): 
+    kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
+    random_state = None if 'random_state' not in kwargs else kwargs['random_state']
+    prob = True if 'prob' not in kwargs else kwarg['prob']
+    C = 1.0 if 'C' not in kwargs else kwargs['C']
+    gamma = 0.0 if 'gamma' not in kwargs else kwargs['gamma']
+    parameters = {'classifier__C': C, 'classifier__gamma': gamma}
+    classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
+    parallel_processing(classifier, parameters, **kwargs)
+
 
 def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
@@ -169,8 +183,9 @@ def main():
 
   cv = sklearn.cross_validation.KFold(n= , n_folds=5, shuffle=True, random_state=None) 
 
-  logistic_regression(coupon_data, 'data/coupon_visit_train.csv')
-
+  clf = Classifiers(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+  clf.learning_algorithm(cv, 'logistic_regression')
+  results = clf.predict(decision=True, predict=True, predict_prob=True, score=True, get_params=True)
 
 if __name__ == '__main__':
   main()
