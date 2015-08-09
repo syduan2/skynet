@@ -139,7 +139,7 @@ class Classifiers(object):
     self.clf = linear_model.LogisticRegression()
     self.clf.fit(self.X_train, self.y_train)
   
-  def parallel_processing(classifier, parameters, **kwargs):
+  def cross_validation(classifier, parameters, **kwargs):
     '''
       Scale data and do cross_validation
       Arguments: 
