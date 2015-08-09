@@ -97,9 +97,15 @@ class Classifiers(object):
     self.y_test = y_test
 
   def set_cv(self, cv):
+    '''
+      Set cross_validation
+    '''
     self.cv = cv    
 
   def set_clf(self, clf):
+    '''
+      Set classifier
+    '''
     self.clf = clf
 
   def learning_algorithm(self, cv, algorithm, **kwargs):
@@ -114,8 +120,17 @@ class Classifiers(object):
       raise Exception('Currently we can only handle SVM, logistic regression and LinearSVC')
 
   def LinearSVC(self, **kwargs):
+    '''
+      Similar to SVM with linear kernel. It's faster than SVM with linear kernel, but might be less accurate 
+      Arguments:
+        kwargs: for specifing parameters
+      Return: None
+    '''
+    # Penalty parameter of the error term
     C = 1.0 if 'C' not in kwargs else kwargs['C']
+    # Turn C into a dict for using parallel_processing
     parameters = {'classifier__C': C}
+    # Seed of the pseudo random number generator for shuffling data
     random_state = None if 'random_state' not in kwargs else kwargs['random_state']
     classifier = svm.LinearSVC(random_state=random_state)
     parallel_processing(classifier, parameters, **kwargs)
@@ -125,26 +140,51 @@ class Classifiers(object):
     self.clf.fit(self.X_train, self.y_train)
   
   def parallel_processing(classifier, parameters, **kwargs):
+    '''
+      Scale data and do cross_validation
+      Arguments: 
+        classifier: classifier to do a grid search on different paramter combinations . Currently support SVM and LinearSVC
+        parameters: parameters for classifier
+      Return:
+        grid_scores_: scores for all parameter combinations
+        best_params_: parameter setting that perform the best on validation set
+    '''
+
     scoring = 'accuracy' if 'scoring' not in kwargs else kwargs['scoring']
     # other scoring options: http://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
+    # n_jobs = number of CPUs to use
     n_jobs = multiprocessing.cpu_count() if 'n_jobs' not in kwargs else kwargs['n_jobs']
+    # Scaled data to 0 mean and unit variacnce
     scaler = preprocessing.StandardScaler() if 'scaling' not in kwargs else kwargs['scaling']
+    # Assemle different steps that can be cross-validate together while setting different parameters
     clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
+    # Find the optimal paramters via an exhausive serach
     self.clf = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
     self.clf.fit(self.X_train, self.y_train)
 
-    return clf_fold.grid_scores_, clf_fold.best_params_, results
+    return self.clf.grid_scores_, self.clf.best_params_
 
   def predict(self, **kwargs):
+    '''
+      Args:
+        kwargs: specifies what to include in results 
+      Return:
+        results: see comments below
+    '''
     results = {}
+    # Distance of X_test to the seperating hyperplance
     if 'decision' in kwargs and kwargs['decision'] == True:
       results.update({'decision': clf.decision_function(self.X_test)})
+    # Classify X_test
     if 'predict' in kwargs and kwargs['predict'] == True:
       results.update({'predict': clf.predict(self.X_test)})
+    # Compute probabilities of possible outcomes for X_test
     if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
       results.update({'predict_prob': clf.predict_proba(self.X_test)})
+    # Mean accuracy of testing data
     if 'score' in kwargs and kwargs['score'] == True:
       results.update({'score': clf.score(self.X_test, self.y_test)})
+    # Parameters for the classifier
     if 'get_params' in kwargs and kwargs['get_params'] == True:
       results.update({'params': clf.get_params()})
 
@@ -152,11 +192,22 @@ class Classifiers(object):
  
 
   def SVM(self, **kwargs): 
+    '''
+      Arguments:
+        kwargs: for specifing parameters
+      Return: None
+    '''
+    # kernel type for SVM. 
     kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
+    # Seed of pseudo random number generator to use for shuffling data for probability estimation
     random_state = None if 'random_state' not in kwargs else kwargs['random_state']
+    # Enable probability estimates. Enable probability will slow fit down
     prob = True if 'prob' not in kwargs else kwarg['prob']
+    # Penalty parameter of the error term
     C = 1.0 if 'C' not in kwargs else kwargs['C']
+    # kernel coefficient
     gamma = 0.0 if 'gamma' not in kwargs else kwargs['gamma']
+    # Turn C and gamma into a dict for using parallel_processing
     parameters = {'classifier__C': C, 'classifier__gamma': gamma}
     classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
     parallel_processing(classifier, parameters, **kwargs)
