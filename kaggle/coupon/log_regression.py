@@ -7,6 +7,9 @@ combinations.
 
 from collections import defaultdict
 import datetime, time, multiprocessing, argparse
+import copy
+import csv
+import sklearn
 from scipy.special import expit
 from scipy.optimize import fmin_bfgs
 from sklearn.svm import SVC
@@ -65,31 +68,35 @@ def parse_coupon_line(line_data):
   features = line_data[0 : len(line_data) - 1]
 
   feature_list = []
+  coupon_info = []
   for i in range(len(features)):
     if features[i] == 'NA':
       feature_list.append(False)
+      coupon_info.append(False)
     elif i in integer_indices:
       feature_list.append(int(features[i]))
+      coupon_info.append(int(features[i]))
     elif i in date_hour_indices:
       feature_list.append(parse_time(features[i], True))
+      coupon_info.append(parse_time(features[i], True))
     elif i in date_indices:
       feature_list.append(parse_time(features[i], False))
+      coupon_info.append(parse_time(features[i], False))
     else:
-      feature_list.append(features[i])
+      coupon_info.append(features[i])
 
-  return (coupon_hash, feature_list)
+  return (coupon_hash, feature_list, coupon_info)
 
-def logistic_cost(y, feature_list, theta):
+#def logistic_cost(y, feature_list, theta):
 
 
 class Classifiers(object):
-  def __init__(self, X_train=None, y_train=None, X_test=None, y_test=None, **kwargs):
+  def __init__(self, cv, X_train=None, y_train=None, X_test=None, y_test=None, **kwargs):
     self.X_train = X_train
     self.y_train = y_train
     self.X_test = X_test
     self.y_test = y_test
     self.cv = cv
-
   def set(self, X_train, y_train, X_test, y_test):
     self.X_train = X_train
     self.y_train = y_train
@@ -100,7 +107,7 @@ class Classifiers(object):
     '''
       Set cross_validation
     '''
-    self.cv = cv    
+    self.cv = cv
 
   def set_clf(self, clf):
     '''
@@ -108,20 +115,19 @@ class Classifiers(object):
     '''
     self.clf = clf
 
-  def learning_algorithm(self, cv, algorithm, **kwargs):
-    self.cv = cv
+  def learning_algorithm(self, algorithm, **kwargs):
     if algorithm == 'SVM':
       self.SVM(**kwargs)
     elif algorithm == 'logistic_regression':
       self.logistic_regression(**kwargs)
-    elif algorithm == 'LinearSVC'
+    elif algorithm == 'LinearSVC':
       self.LinearSVC(**kwargs)
     else:
       raise Exception('Currently we can only handle SVM, logistic regression and LinearSVC')
 
   def LinearSVC(self, **kwargs):
     '''
-      Similar to SVM with linear kernel. It's faster than SVM with linear kernel, but might be less accurate 
+      Similar to SVM with linear kernel. It's faster than SVM with linear kernel, but might be less accurate
       Arguments:
         kwargs: for specifing parameters
       Return: None
@@ -133,16 +139,16 @@ class Classifiers(object):
     # Seed of the pseudo random number generator for shuffling data
     random_state = None if 'random_state' not in kwargs else kwargs['random_state']
     classifier = svm.LinearSVC(random_state=random_state)
-    parallel_processing(classifier, parameters, **kwargs)
+    cross_validation(classifier, parameters, **kwargs)
 
   def logistic_regression(self, **kwargs):
     self.clf = linear_model.LogisticRegression()
     self.clf.fit(self.X_train, self.y_train)
-  
+
   def cross_validation(classifier, parameters, **kwargs):
     '''
       Scale data and do cross_validation
-      Arguments: 
+      Arguments:
         classifier: classifier to do a grid search on different paramter combinations . Currently support SVM and LinearSVC
         parameters: parameters for classifier
       Return:
@@ -160,6 +166,7 @@ class Classifiers(object):
     clf = Pipeline(steps = [('normalize', scaler), ('classifier', classifier)])
     # Find the optimal paramters via an exhausive serach
     self.clf = GridSearchCV(clf, param_grid=parameters, scoring=scoring, n_jobs=n_jobs, iid=False, cv=cv)
+    print 'Fitting...'
     self.clf.fit(self.X_train, self.y_train)
 
     return self.clf.grid_scores_, self.clf.best_params_
@@ -167,37 +174,38 @@ class Classifiers(object):
   def predict(self, **kwargs):
     '''
       Args:
-        kwargs: specifies what to include in results 
+        kwargs: specifies what to include in results
       Return:
         results: see comments below
     '''
     results = {}
+    print 'Predicting...'
     # Distance of X_test to the seperating hyperplance
     if 'decision' in kwargs and kwargs['decision'] == True:
-      results.update({'decision': clf.decision_function(self.X_test)})
+      results.update({'decision': self.clf.decision_function(self.X_test)})
     # Classify X_test
     if 'predict' in kwargs and kwargs['predict'] == True:
-      results.update({'predict': clf.predict(self.X_test)})
+      results.update({'predict': self.clf.predict(self.X_test)})
     # Compute probabilities of possible outcomes for X_test
     if 'predict_prob' in kwargs and kwargs['predict_prob'] == True:
-      results.update({'predict_prob': clf.predict_proba(self.X_test)})
+      results.update({'predict_prob': self.clf.predict_proba(self.X_test)})
     # Mean accuracy of testing data
     if 'score' in kwargs and kwargs['score'] == True:
-      results.update({'score': clf.score(self.X_test, self.y_test)})
+      results.update({'score': self.clf.score(self.X_test, self.y_test)})
     # Parameters for the classifier
     if 'get_params' in kwargs and kwargs['get_params'] == True:
-      results.update({'params': clf.get_params()})
+      results.update({'params': self.clf.get_params()})
 
     return results
- 
 
-  def SVM(self, **kwargs): 
+
+  def SVM(self, **kwargs):
     '''
       Arguments:
         kwargs: for specifing parameters
       Return: None
     '''
-    # kernel type for SVM. 
+    # kernel type for SVM.
     kernel = 'rbf' if 'kernel' not in kwargs else kwargs['kernel']
     # Seed of pseudo random number generator to use for shuffling data for probability estimation
     random_state = None if 'random_state' not in kwargs else kwargs['random_state']
@@ -210,20 +218,24 @@ class Classifiers(object):
     # Turn C and gamma into a dict for using parallel_processing
     parameters = {'classifier__C': C, 'classifier__gamma': gamma}
     classifier = svm.SVC(kernel=kernel, probability=prob, random_state=random_state)
-    parallel_processing(classifier, parameters, **kwargs)
+    cross_validation(classifier, parameters, **kwargs)
 
 
 def main():
   feature_file = open('data/coupon_list_train.csv', 'r')
 
   coupon_data = {}  # Access feature data using coupon hash
+  feature_data = {}
+
   purchase_data = defaultdict(int)  # Dictionary of purchases with number of purchases as val
+  print 'Loading Data...'
   with open('data/coupon_list_train.csv', 'rb') as csvfile:
     features = csv.reader(csvfile, delimiter=',')
     feature_list = features.next()
     for feature in features:
-      coupon_hash, feature_attr = parse_coupon_line(feature)
-      coupon_data[coupon_hash] = feature_attr
+      coupon_hash, feature_attr, coupon_info = parse_coupon_line(feature)
+      coupon_data[coupon_hash] = coupon_info
+      feature_data[coupon_hash] = feature_attr
 
   with open('data/coupon_detail_train.csv', 'rb') as csvfile:
     csv_reader = csv.DictReader(csvfile)
@@ -232,11 +244,27 @@ def main():
                       purchase_line['COUPON_ID_hash'])
       purchase_data[purchase_key] += 1
 
-  cv = sklearn.cross_validation.KFold(n= , n_folds=5, shuffle=True, random_state=None) 
+  data_set = []
+  truth_set = []
+  with open ('data/coupon_visit_train.csv', 'rb') as csvfile:
+    csv_reader = csv.DictReader(csvfile)
+    for view_line in csv_reader:
+      try:
+        data_set.append(feature_data[view_line['VIEW_COUPON_ID_hash']])
+        truth_set.append(float(purchase_data[(view_line['USER_ID_hash'],
+                                              view_line['VIEW_COUPON_ID_hash'])]))
+      except KeyError:
+        continue
+  train_set_size = int(len(data_set)*0.8)
+  cv = sklearn.cross_validation.KFold(n=train_set_size, n_folds=5, shuffle=True, random_state=None)
 
-  clf = Classifiers(X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
-  clf.learning_algorithm(cv, 'logistic_regression')
+  X_train = data_set[0:train_set_size]
+  y_train = truth_set[0:train_set_size]
+  X_test = data_set[train_set_size:]
+  y_test = truth_set[train_set_size:]
+  clf = Classifiers(cv, X_train=X_train, y_train=y_train, X_test=X_test, y_test=y_test)
+  clf.learning_algorithm('logistic_regression')
   results = clf.predict(decision=True, predict=True, predict_prob=True, score=True, get_params=True)
-
+  print 'accuracy %f' % results['score']
 if __name__ == '__main__':
   main()
