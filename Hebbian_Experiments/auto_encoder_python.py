@@ -45,8 +45,9 @@ def log_time_step(h, y, why):
 
     y_pred = sigmoid(np.dot(h, np.transpose(why)))
     return why, y_pred, error
+
 def data_gen():
-    data = [1,1,1,1,1,1,7]
+    data = [1,1,1,1,1,6,7]
     i = 0
     while True:
         if i%data_len < len(data):
